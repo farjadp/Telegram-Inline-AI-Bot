@@ -1,0 +1,97 @@
+# ============================================================================
+# Source: docker-compose.yml
+# Version: 1.0.0 — 2026-04-16
+# Why: Orchestrates all project services for local dev and production
+# Env / Identity: Docker Compose v3.9
+# ============================================================================
+
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Main FastAPI application — serves the bot webhook + admin panel
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram_bot_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Override DATABASE_URL for Docker networking
+      - DATABASE_URL=postgresql+asyncpg://botuser:botpass@db:5432/botdb
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      # Mount source code for hot-reload in dev
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ---------------------------------------------------------------------------
+  # Celery worker — handles async image generation tasks
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: telegram_bot_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://botuser:botpass@db:5432/botdb
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - .:/app
+    depends_on:
+      - redis
+      - db
+    command: celery -A app.worker worker --loglevel=info --concurrency=2
+
+  # ---------------------------------------------------------------------------
+  # Redis — message broker for Celery + rate limiting cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: telegram_bot_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — production database (SQLite is used for local dev outside Docker)
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: telegram_bot_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: botuser
+      POSTGRES_PASSWORD: botpass
+      POSTGRES_DB: botdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U botuser -d botdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+# ---------------------------------------------------------------------------
+# Named volumes for data persistence across container restarts
+# ---------------------------------------------------------------------------
+volumes:
+  postgres_data:
+  redis_data:

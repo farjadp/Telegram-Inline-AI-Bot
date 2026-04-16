@@ -1,0 +1,175 @@
+<!-- ============================================================================
+     Source: dashboard.html
+     Version: 1.0.0 — 2026-04-16
+     Why: Admin dashboard — stat cards, Chart.js charts, and activity feed
+     Env / Identity: Jinja2 template — extends base.html
+     ============================================================================ -->
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- ================================================================
+     Stat Cards Row — today's key metrics at a glance
+     ================================================================ -->
+<section class="stats-grid" aria-label="Today's statistics">
+
+    <!-- Total Requests Today -->
+    <div class="stat-card" id="card-total-requests">
+        <div class="stat-icon stat-icon-blue" aria-hidden="true">📨</div>
+        <div class="stat-body">
+            <span class="stat-label">Requests Today</span>
+            <span class="stat-value" id="val-requests-today">{{ today.total_requests }}</span>
+            <span class="stat-sub">{{ analytics.total_requests }} this month</span>
+        </div>
+    </div>
+
+    <!-- Token Usage Today -->
+    <div class="stat-card" id="card-tokens">
+        <div class="stat-icon stat-icon-purple" aria-hidden="true">🧠</div>
+        <div class="stat-body">
+            <span class="stat-label">Tokens Today</span>
+            <span class="stat-value" id="val-tokens-today">{{ "{:,}".format(today.total_tokens) }}</span>
+            <span class="stat-sub">{{ "{:,}".format(analytics.total_tokens) }} this month</span>
+        </div>
+    </div>
+
+    <!-- Cost Today -->
+    <div class="stat-card" id="card-cost">
+        <div class="stat-icon stat-icon-green" aria-hidden="true">💰</div>
+        <div class="stat-body">
+            <span class="stat-label">Cost Today</span>
+            <span class="stat-value" id="val-cost-today">${{ "%.4f"|format(today.total_cost_usd) }}</span>
+            <span class="stat-sub">${{ "%.4f"|format(analytics.total_cost_usd) }} this month</span>
+        </div>
+    </div>
+
+    <!-- Active Users -->
+    <div class="stat-card" id="card-users">
+        <div class="stat-icon stat-icon-orange" aria-hidden="true">👥</div>
+        <div class="stat-body">
+            <span class="stat-label">Active Users</span>
+            <span class="stat-value" id="val-active-users">{{ today.active_users }}</span>
+            <span class="stat-sub">{{ analytics.active_users }} this month</span>
+        </div>
+    </div>
+
+</section>
+
+<!-- ================================================================
+     Charts Row — token timeline + request type breakdown
+     ================================================================ -->
+<section class="charts-grid" aria-label="Usage charts">
+
+    <!-- Daily Token Usage (Line chart) -->
+    <div class="card chart-card" id="card-token-chart">
+        <div class="card-header">
+            <h2 class="card-title">Daily Requests (30 days)</h2>
+            <span class="card-badge">Last 30 days</span>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="chart-daily" aria-label="Daily request volume chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Text vs Image Breakdown (Doughnut chart) -->
+    <div class="card chart-card chart-card-sm" id="card-type-chart">
+        <div class="card-header">
+            <h2 class="card-title">Request Types</h2>
+        </div>
+        <div class="chart-wrapper chart-wrapper-sm">
+            <canvas id="chart-types" aria-label="Text vs image request distribution"></canvas>
+        </div>
+        <div class="chart-legend">
+            <span class="legend-dot legend-text"></span> Text ({{ analytics.text_requests }})
+            <span class="legend-dot legend-image"></span> Image ({{ analytics.image_requests }})
+        </div>
+    </div>
+
+</section>
+
+<!-- Top Users bar chart -->
+<section class="card" id="card-top-users" style="margin-top: var(--space-4);">
+    <div class="card-header">
+        <h2 class="card-title">Top Users (30 days)</h2>
+    </div>
+    <div class="chart-wrapper">
+        <canvas id="chart-top-users" aria-label="Top users by request count"></canvas>
+    </div>
+</section>
+
+<!-- ================================================================
+     Recent Activity Feed
+     ================================================================ -->
+<section class="card" id="card-activity" style="margin-top: var(--space-4);">
+    <div class="card-header">
+        <h2 class="card-title">Recent Requests</h2>
+        <a href="/admin/history" class="card-link" id="link-all-requests">View all →</a>
+    </div>
+
+    {% if recent_requests %}
+    <div class="table-wrapper">
+        <table class="data-table" aria-label="Recent requests">
+            <thead>
+                <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Model</th>
+                    <th scope="col">Query</th>
+                    <th scope="col">Tokens</th>
+                    <th scope="col">Cost</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in recent_requests %}
+                <tr class="table-row" data-id="{{ req.id }}">
+                    <td class="td-mono">{{ req.created_at.strftime('%H:%M:%S') if req.created_at else '—' }}</td>
+                    <td>
+                        <span class="badge {% if req.request_type == 'image' %}badge-purple{% else %}badge-blue{% endif %}">
+                            {% if req.request_type == 'image' %}🎨 Image{% else %}📝 Text{% endif %}
+                        </span>
+                    </td>
+                    <td class="td-mono td-small">{{ req.model[:20] }}</td>
+                    <td class="td-query">{{ req.query[:60] }}{% if req.query|length > 60 %}…{% endif %}</td>
+                    <td class="td-number">{{ req.total_tokens or req.image_credits or '—' }}</td>
+                    <td class="td-number">${{ "%.5f"|format(req.cost_usd|float) if req.cost_usd else '—' }}</td>
+                    <td>
+                        <span class="badge {% if req.status == 'success' %}badge-green{% elif req.status == 'error' %}badge-red{% else %}badge-yellow{% endif %}">
+                            {{ req.status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p class="empty-icon" aria-hidden="true">📭</p>
+        <p>No requests yet. Send a message to your bot to get started!</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pass server-side analytics data to the JS chart renderer
+// Serialized as a JSON object for Chart.js consumption
+const DASHBOARD_DATA = {
+    daily: {{ analytics.daily_stats | tojson }},
+    text_requests: {{ analytics.text_requests }},
+    image_requests: {{ analytics.image_requests }},
+    top_users: {{ analytics.top_users | tojson }}
+};
+
+// Initialize charts once the DOM and Chart.js are ready
+document.addEventListener("DOMContentLoaded", () => {
+    if (typeof initDashboardCharts === "function") {
+        initDashboardCharts(DASHBOARD_DATA);
+    }
+});
+</script>
+{% endblock %}

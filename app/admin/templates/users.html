@@ -1,0 +1,219 @@
+<!-- ============================================================================
+     Source: users.html
+     Version: 1.0.0 — 2026-04-16
+     Why: User management — list all users with block/unblock and rate limit controls
+     Env / Identity: Jinja2 template — extends base.html
+     ============================================================================ -->
+{% extends "base.html" %}
+
+{% block title %}Users{% endblock %}
+{% block page_title %}User Management{% endblock %}
+
+{% block content %}
+
+<!-- Search bar -->
+<form action="/admin/users" method="get" class="filter-bar card" id="user-filter-form">
+    <div class="filter-grid">
+        <div class="form-group" id="group-user-search">
+            <label for="search-users" class="form-label">Search users</label>
+            <input type="text" id="search-users" name="search" class="form-input"
+                   placeholder="Username or name…" value="{{ search }}" />
+        </div>
+        <div class="filter-actions" style="align-self: flex-end;">
+            <button type="submit" class="btn btn-primary" id="btn-search-users">Search</button>
+            <a href="/admin/users" class="btn btn-outline" id="btn-clear-users">Clear</a>
+        </div>
+    </div>
+</form>
+
+<p class="results-count">{{ total }} user{{ 's' if total != 1 else '' }} total</p>
+
+<!-- User table -->
+{% if users %}
+<div class="card" id="card-users-table">
+    <div class="table-wrapper">
+        <table class="data-table" aria-label="User list">
+            <thead>
+                <tr>
+                    <th scope="col">Telegram ID</th>
+                    <th scope="col">Username</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Rate Limit</th>
+                    <th scope="col">Joined</th>
+                    <th scope="col">Last Active</th>
+                    <th scope="col">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr class="table-row" id="user-row-{{ user.telegram_id }}">
+                    <td class="td-mono td-small">{{ user.telegram_id }}</td>
+                    <td>
+                        {% if user.username %}
+                        <span class="username-badge">@{{ user.username }}</span>
+                        {% else %}
+                        <span class="td-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ user.first_name or '' }}
+                        {{ user.last_name or '' }}
+                        {% if not user.first_name and not user.last_name %}
+                        <span class="td-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {{ 'badge-red' if user.is_blocked else 'badge-green' }}"
+                              id="status-badge-{{ user.telegram_id }}">
+                            {{ '🚫 Blocked' if user.is_blocked else '✅ Active' }}
+                        </span>
+                    </td>
+                    <td class="td-mono td-small" id="rate-limit-cell-{{ user.telegram_id }}">
+                        {{ user.rate_limit if user.rate_limit is not none else 'default' }}
+                    </td>
+                    <td class="td-mono td-small">
+                        {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '—' }}
+                    </td>
+                    <td class="td-mono td-small">
+                        {{ user.last_active_at.strftime('%m/%d %H:%M') if user.last_active_at else '—' }}
+                    </td>
+                    <td class="actions-cell">
+                        <!-- Block / Unblock toggle button -->
+                        <button
+                            class="btn btn-sm {{ 'btn-success' if user.is_blocked else 'btn-danger' }}"
+                            id="btn-block-{{ user.telegram_id }}"
+                            onclick="toggleBlock({{ user.telegram_id }}, {{ 'false' if user.is_blocked else 'true' }})"
+                            aria-label="{{ 'Unblock' if user.is_blocked else 'Block' }} user {{ user.telegram_id }}"
+                        >
+                            {{ '✅ Unblock' if user.is_blocked else '🚫 Block' }}
+                        </button>
+
+                        <!-- Rate limit edit button -->
+                        <button
+                            class="btn btn-sm btn-outline"
+                            id="btn-ratelimit-{{ user.telegram_id }}"
+                            onclick="editRateLimit({{ user.telegram_id }}, {{ user.rate_limit if user.rate_limit is not none else 'null' }})"
+                            aria-label="Edit rate limit for user {{ user.telegram_id }}"
+                        >
+                            ⚡ Limit
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="User page navigation" id="user-pagination">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&search={{ search }}" class="page-btn" id="btn-users-prev">← Prev</a>
+    {% endif %}
+    <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}&search={{ search }}" class="page-btn" id="btn-users-next">Next →</a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="card empty-state" id="empty-users">
+    <p class="empty-icon" aria-hidden="true">👥</p>
+    <p>No users yet. Users appear here after they interact with your bot.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+/**
+ * Toggle block/unblock status for a user via AJAX.
+ * Updates the UI inline without a full page reload.
+ *
+ * @param {number} telegramId - The user's Telegram ID
+ * @param {boolean} block     - true to block, false to unblock
+ */
+async function toggleBlock(telegramId, block) {
+    const btn = document.getElementById(`btn-block-${telegramId}`);
+    const badge = document.getElementById(`status-badge-${telegramId}`);
+    if (btn) btn.disabled = true;  // Prevent double-click
+
+    try {
+        const response = await fetch(`/admin/users/${telegramId}/block`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ blocked: block }),
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Update badge text and color inline
+            if (badge) {
+                badge.textContent = block ? "🚫 Blocked" : "✅ Active";
+                badge.className = `badge ${block ? "badge-red" : "badge-green"}`;
+            }
+            // Flip the button for the next toggle action
+            if (btn) {
+                btn.textContent = block ? "✅ Unblock" : "🚫 Block";
+                btn.className = `btn btn-sm ${block ? "btn-success" : "btn-danger"}`;
+                btn.setAttribute("onclick", `toggleBlock(${telegramId}, ${!block})`);
+            }
+        } else {
+            alert(`Error: ${data.message || "Unknown error"}`);
+        }
+    } catch (err) {
+        alert(`Network error: ${err.message}`);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+/**
+ * Prompt admin to enter a custom rate limit for a user.
+ * Leave blank to reset to the global default.
+ *
+ * @param {number} telegramId    - The user's Telegram ID
+ * @param {number|null} current  - Current custom rate limit (null = default)
+ */
+async function editRateLimit(telegramId, current) {
+    const input = prompt(
+        `Set custom rate limit for user ${telegramId}\n` +
+        `Current: ${current ?? "default"}\n\n` +
+        `Enter a number (max requests per window), or leave blank to use default:`,
+        current ?? ""
+    );
+
+    if (input === null) return;  // User cancelled
+
+    const rateLimit = input.trim() === "" ? null : parseInt(input, 10);
+
+    if (rateLimit !== null && (isNaN(rateLimit) || rateLimit < 1)) {
+        alert("Please enter a valid positive number, or leave blank for default.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/users/${telegramId}/rate-limit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rate_limit: rateLimit }),
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Update the rate limit cell inline
+            const cell = document.getElementById(`rate-limit-cell-${telegramId}`);
+            if (cell) cell.textContent = rateLimit ?? "default";
+        } else {
+            alert(`Error: ${data.message}`);
+        }
+    } catch (err) {
+        alert(`Network error: ${err.message}`);
+    }
+}
+</script>
+{% endblock %}

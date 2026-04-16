@@ -1,0 +1,69 @@
+# ============================================================================
+# Source: requirements.txt
+# Version: 1.0.0 — 2026-04-16
+# Why: All Python package dependencies for the bot, admin panel, and workers
+# Env / Identity: pip — Python 3.11+
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Web Framework
+# ---------------------------------------------------------------------------
+fastapi==0.111.1           # ASGI web framework for admin panel + webhook endpoint
+uvicorn[standard]==0.30.1  # Production ASGI server
+python-multipart==0.0.9    # Required for FastAPI form parsing (login forms)
+jinja2==3.1.4              # HTML template engine for admin panel
+
+# ---------------------------------------------------------------------------
+# Telegram Bot
+# ---------------------------------------------------------------------------
+python-telegram-bot[job-queue]==21.3  # Async Telegram bot library v20+
+
+# ---------------------------------------------------------------------------
+# AI / LLM Providers
+# ---------------------------------------------------------------------------
+openai==1.35.7             # OpenAI GPT client (v1.x async API)
+replicate==0.30.0          # Replicate API client for Flux image generation
+fal-client==0.4.1          # fal.ai client (alternative image provider)
+httpx==0.27.0              # Async HTTP client used internally
+
+# ---------------------------------------------------------------------------
+# Database
+# ---------------------------------------------------------------------------
+sqlalchemy[asyncio]==2.0.31  # ORM with async support (SQLAlchemy 2.x)
+alembic==1.13.2              # Database migration tool
+aiosqlite==0.20.0            # Async SQLite driver (dev/local)
+asyncpg==0.29.0              # Async PostgreSQL driver (production)
+psycopg2-binary==2.9.9       # Sync PostgreSQL driver (Alembic offline mode)
+
+# ---------------------------------------------------------------------------
+# Task Queue (Celery + Redis)
+# ---------------------------------------------------------------------------
+celery[redis]==5.4.0          # Distributed task queue for async image jobs
+redis==5.0.7                  # Redis client + rate limiter backend
+
+# ---------------------------------------------------------------------------
+# Authentication & Security
+# ---------------------------------------------------------------------------
+passlib[bcrypt]==1.7.4        # Password hashing (bcrypt)
+itsdangerous==2.2.0           # Signed cookies for session management
+python-jose[cryptography]==3.3.0  # JWT support (optional future auth)
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+pydantic-settings==2.3.4      # Settings management from .env files
+python-dotenv==1.0.1          # Load .env files into environment
+
+# ---------------------------------------------------------------------------
+# Utilities
+# ---------------------------------------------------------------------------
+aiohttp==3.9.5                # Async HTTP (image proxy, webhook setup)
+apscheduler==3.10.4           # Scheduled jobs (cache cleanup, stats aggregation)
+
+# ---------------------------------------------------------------------------
+# Testing
+# ---------------------------------------------------------------------------
+pytest==8.2.2                 # Test runner
+pytest-asyncio==0.23.7        # Async test support
+pytest-cov==5.0.0             # Coverage reporting
+httpx==0.27.0                 # FastAPI TestClient async support (already listed)

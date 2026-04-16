@@ -1,0 +1,191 @@
+<!-- ============================================================================
+     Source: analytics.html
+     Version: 1.0.0 — 2026-04-16
+     Why: Analytics page — charts, breakdowns, date-range filter, CSV export
+     Env / Identity: Jinja2 template — extends base.html
+     ============================================================================ -->
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+
+{% block content %}
+
+<!-- ================================================================
+     Time Range Selector
+     ================================================================ -->
+<div class="card filter-bar" id="analytics-filter">
+    <form action="/admin/analytics" method="get" class="filter-grid">
+        <div class="form-group">
+            <label for="days" class="form-label">Time Range</label>
+            <select id="days" name="days" class="form-select" onchange="this.form.submit()">
+                <option value="7"  {% if days == 7  %}selected{% endif %}>Last 7 days</option>
+                <option value="14" {% if days == 14 %}selected{% endif %}>Last 14 days</option>
+                <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+            </select>
+        </div>
+        <div class="filter-actions" style="align-self: flex-end;">
+            <a href="/admin/api/export" class="btn btn-outline" id="btn-export-analytics" download>
+                ⬇ Export CSV
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- ================================================================
+     Summary Stat Cards
+     ================================================================ -->
+<section class="stats-grid" aria-label="Period summary" style="margin-top: var(--space-4);">
+    <div class="stat-card" id="card-an-total">
+        <div class="stat-icon stat-icon-blue" aria-hidden="true">📨</div>
+        <div class="stat-body">
+            <span class="stat-label">Total Requests</span>
+            <span class="stat-value">{{ analytics.total_requests }}</span>
+        </div>
+    </div>
+    <div class="stat-card" id="card-an-text">
+        <div class="stat-icon stat-icon-cyan" aria-hidden="true">📝</div>
+        <div class="stat-body">
+            <span class="stat-label">Text Requests</span>
+            <span class="stat-value">{{ analytics.text_requests }}</span>
+            <span class="stat-sub">
+                {% if analytics.total_requests > 0 %}
+                {{ "%.0f"|format(analytics.text_requests / analytics.total_requests * 100) }}%
+                {% else %}0%{% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="stat-card" id="card-an-image">
+        <div class="stat-icon stat-icon-purple" aria-hidden="true">🎨</div>
+        <div class="stat-body">
+            <span class="stat-label">Image Requests</span>
+            <span class="stat-value">{{ analytics.image_requests }}</span>
+            <span class="stat-sub">
+                {% if analytics.total_requests > 0 %}
+                {{ "%.0f"|format(analytics.image_requests / analytics.total_requests * 100) }}%
+                {% else %}0%{% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="stat-card" id="card-an-cost">
+        <div class="stat-icon stat-icon-green" aria-hidden="true">💸</div>
+        <div class="stat-body">
+            <span class="stat-label">Total Cost</span>
+            <span class="stat-value">${{ "%.4f"|format(analytics.total_cost_usd) }}</span>
+            <span class="stat-sub">{{ "{:,}".format(analytics.total_tokens) }} tokens</span>
+        </div>
+    </div>
+</section>
+
+<!-- ================================================================
+     Charts
+     ================================================================ -->
+<div class="charts-grid" style="margin-top: var(--space-4);">
+
+    <!-- Daily requests over time (line chart) -->
+    <div class="card chart-card" id="card-an-daily">
+        <div class="card-header">
+            <h2 class="card-title">Requests Over Time</h2>
+            <span class="card-badge">{{ days }} days</span>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="chart-an-daily" aria-label="Daily requests line chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Text vs Image doughnut -->
+    <div class="card chart-card chart-card-sm" id="card-an-types">
+        <div class="card-header">
+            <h2 class="card-title">Request Mix</h2>
+        </div>
+        <div class="chart-wrapper chart-wrapper-sm">
+            <canvas id="chart-an-types" aria-label="Request type distribution"></canvas>
+        </div>
+        <div class="chart-legend">
+            <span class="legend-dot legend-text"></span> Text ({{ analytics.text_requests }})
+            <span class="legend-dot legend-image"></span> Image ({{ analytics.image_requests }})
+        </div>
+    </div>
+
+</div>
+
+<!-- Top users and daily cost -->
+<div class="charts-grid" style="margin-top: var(--space-4);">
+
+    <!-- Top users bar chart -->
+    <div class="card chart-card" id="card-an-top-users">
+        <div class="card-header">
+            <h2 class="card-title">Top Users</h2>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="chart-an-users" aria-label="Top users by request count"></canvas>
+        </div>
+    </div>
+
+    <!-- Daily cost line chart -->
+    <div class="card chart-card" id="card-an-cost-chart">
+        <div class="card-header">
+            <h2 class="card-title">Daily Cost (USD)</h2>
+        </div>
+        <div class="chart-wrapper">
+            <canvas id="chart-an-cost" aria-label="Daily cost in USD"></canvas>
+        </div>
+    </div>
+
+</div>
+
+<!-- ================================================================
+     Daily Stats Table (raw data)
+     ================================================================ -->
+{% if analytics.daily_stats %}
+<div class="card" id="card-daily-table" style="margin-top: var(--space-4);">
+    <div class="card-header">
+        <h2 class="card-title">Daily Breakdown</h2>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table" aria-label="Daily statistics">
+            <thead>
+                <tr>
+                    <th scope="col">Date</th>
+                    <th scope="col">Text Requests</th>
+                    <th scope="col">Image Requests</th>
+                    <th scope="col">Total Tokens</th>
+                    <th scope="col">Cost (USD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in analytics.daily_stats | reverse %}
+                <tr>
+                    <td class="td-mono">{{ day.date }}</td>
+                    <td class="td-number">{{ day.text_count }}</td>
+                    <td class="td-number">{{ day.image_count }}</td>
+                    <td class="td-number">{{ "{:,}".format(day.tokens) }}</td>
+                    <td class="td-number">${{ "%.5f"|format(day.cost) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Pass analytics data to Chart.js renderer in admin.js
+const ANALYTICS_DATA = {
+    daily: {{ analytics.daily_stats | tojson }},
+    text_requests: {{ analytics.text_requests }},
+    image_requests: {{ analytics.image_requests }},
+    top_users: {{ analytics.top_users | tojson }}
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (typeof initAnalyticsCharts === "function") {
+        initAnalyticsCharts(ANALYTICS_DATA);
+    }
+});
+</script>
+{% endblock %}

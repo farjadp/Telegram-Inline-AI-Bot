@@ -1,0 +1,221 @@
+<!-- ============================================================================
+     Source: history.html
+     Version: 1.0.0 — 2026-04-16
+     Why: Request history — searchable, filterable paginated table with detail modal
+     Env / Identity: Jinja2 template — extends base.html
+     ============================================================================ -->
+{% extends "base.html" %}
+
+{% block title %}Request History{% endblock %}
+{% block page_title %}Request History{% endblock %}
+
+{% block content %}
+
+<!-- ================================================================
+     Filter Bar
+     ================================================================ -->
+<form action="/admin/history" method="get" class="filter-bar card" id="filter-form">
+    <div class="filter-grid">
+
+        <!-- Text search -->
+        <div class="form-group" id="group-search">
+            <label for="search" class="form-label">Search query</label>
+            <input type="text" id="search" name="search" class="form-input"
+                   placeholder="Search queries…" value="{{ filters.search }}" />
+        </div>
+
+        <!-- Type filter -->
+        <div class="form-group" id="group-type-filter">
+            <label for="request_type" class="form-label">Type</label>
+            <select id="request_type" name="request_type" class="form-select">
+                <option value="">All types</option>
+                <option value="text" {% if filters.request_type == 'text' %}selected{% endif %}>📝 Text</option>
+                <option value="image" {% if filters.request_type == 'image' %}selected{% endif %}>🎨 Image</option>
+            </select>
+        </div>
+
+        <!-- Status filter -->
+        <div class="form-group" id="group-status-filter">
+            <label for="status" class="form-label">Status</label>
+            <select id="status" name="status" class="form-select">
+                <option value="">All statuses</option>
+                <option value="success" {% if filters.status == 'success' %}selected{% endif %}>✅ Success</option>
+                <option value="error" {% if filters.status == 'error' %}selected{% endif %}>❌ Error</option>
+                <option value="rate_limited" {% if filters.status == 'rate_limited' %}selected{% endif %}>⏳ Rate limited</option>
+            </select>
+        </div>
+
+        <!-- Date from -->
+        <div class="form-group" id="group-date-from">
+            <label for="date_from" class="form-label">From</label>
+            <input type="date" id="date_from" name="date_from" class="form-input"
+                   value="{{ filters.date_from }}" />
+        </div>
+
+        <!-- Date to -->
+        <div class="form-group" id="group-date-to">
+            <label for="date_to" class="form-label">To</label>
+            <input type="date" id="date_to" name="date_to" class="form-input"
+                   value="{{ filters.date_to }}" />
+        </div>
+
+        <!-- Action buttons -->
+        <div class="filter-actions">
+            <button type="submit" class="btn btn-primary" id="btn-filter">Filter</button>
+            <a href="/admin/history" class="btn btn-outline" id="btn-clear-filters">Clear</a>
+            <a href="/admin/api/export?request_type={{ filters.request_type }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}"
+               class="btn btn-outline" id="btn-export" download>
+                ⬇ Export CSV
+            </a>
+        </div>
+    </div>
+</form>
+
+<!-- Results count -->
+<p class="results-count">
+    Showing {{ requests|length }} of <strong>{{ total }}</strong> requests
+    {% if filters.search or filters.request_type or filters.status %}
+    (filtered)
+    {% endif %}
+</p>
+
+<!-- ================================================================
+     Request Table
+     ================================================================ -->
+{% if requests %}
+<div class="card" id="card-history-table">
+    <div class="table-wrapper">
+        <table class="data-table" aria-label="Request history">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">User</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Model</th>
+                    <th scope="col">Query</th>
+                    <th scope="col">Tokens</th>
+                    <th scope="col">Cost</th>
+                    <th scope="col">Time (ms)</th>
+                    <th scope="col">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <!-- Each row is clickable and expands an inline detail view -->
+                <tr class="table-row table-row-clickable"
+                    id="row-{{ req.id }}"
+                    onclick="expandRow({{ req.id }})"
+                    role="button"
+                    tabindex="0"
+                    aria-expanded="false">
+                    <td class="td-mono td-small">#{{ req.id }}</td>
+                    <td class="td-mono td-small">
+                        {{ req.created_at.strftime('%m/%d %H:%M') if req.created_at else '—' }}
+                    </td>
+                    <td class="td-user">
+                        {{ req.user_id or '—' }}
+                    </td>
+                    <td>
+                        <span class="badge {% if req.request_type == 'image' %}badge-purple{% else %}badge-blue{% endif %}">
+                            {% if req.request_type == 'image' %}🎨{% else %}📝{% endif %}
+                            {{ req.request_type }}
+                        </span>
+                    </td>
+                    <td class="td-mono td-small">{{ req.model[:22] if req.model else '—' }}</td>
+                    <td class="td-query">{{ req.query[:70] }}{% if req.query|length > 70 %}…{% endif %}</td>
+                    <td class="td-number td-small">{{ req.total_tokens or req.image_credits or '—' }}</td>
+                    <td class="td-number td-small">
+                        {% if req.cost_usd %}${{ "%.5f"|format(req.cost_usd|float) }}{% else %}—{% endif %}
+                    </td>
+                    <td class="td-number td-small">{{ req.processing_time_ms or '—' }}</td>
+                    <td>
+                        <span class="badge
+                            {% if req.status == 'success' %}badge-green
+                            {% elif req.status == 'error' %}badge-red
+                            {% else %}badge-yellow{% endif %}">
+                            {{ req.status }}
+                        </span>
+                    </td>
+                </tr>
+
+                <!-- Expandable detail row — hidden by default, toggled by onclick -->
+                <tr class="detail-row" id="detail-{{ req.id }}" style="display:none">
+                    <td colspan="10">
+                        <div class="detail-panel">
+                            <div class="detail-grid">
+                                <div>
+                                    <strong>Full Query:</strong>
+                                    <pre class="detail-pre">{{ req.query }}</pre>
+                                </div>
+                                <div>
+                                    <strong>Response Preview:</strong>
+                                    {% if req.request_type == 'image' and req.image_url %}
+                                    <div class="detail-image-wrapper">
+                                        <img src="{{ req.image_url }}" alt="Generated image"
+                                             class="detail-image" loading="lazy" />
+                                    </div>
+                                    {% else %}
+                                    <pre class="detail-pre">{{ req.response_preview or '—' }}</pre>
+                                    {% endif %}
+                                </div>
+                                {% if req.error_message %}
+                                <div class="detail-error">
+                                    <strong>Error:</strong> {{ req.error_message }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================================================================
+     Pagination
+     ================================================================ -->
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Page navigation" id="pagination">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&search={{ filters.search }}&request_type={{ filters.request_type }}&status={{ filters.status }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}"
+       class="page-btn" id="btn-prev-page">← Prev</a>
+    {% endif %}
+
+    <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+
+    {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}&search={{ filters.search }}&request_type={{ filters.request_type }}&status={{ filters.status }}&date_from={{ filters.date_from }}&date_to={{ filters.date_to }}"
+       class="page-btn" id="btn-next-page">Next →</a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<!-- Empty state -->
+<div class="card empty-state" id="empty-history">
+    <p class="empty-icon" aria-hidden="true">📭</p>
+    <p>No requests found matching your filters.</p>
+    <a href="/admin/history" class="btn btn-outline" style="margin-top: var(--space-3);">Clear filters</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Toggle the detail row expansion below a clicked table row
+function expandRow(requestId) {
+    const detailRow = document.getElementById(`detail-${requestId}`);
+    const mainRow = document.getElementById(`row-${requestId}`);
+    if (!detailRow) return;
+
+    const isOpen = detailRow.style.display !== "none";
+    detailRow.style.display = isOpen ? "none" : "table-row";
+    mainRow.setAttribute("aria-expanded", !isOpen);
+    mainRow.classList.toggle("row-expanded", !isOpen);
+}
+</script>
+{% endblock %}

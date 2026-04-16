@@ -1,0 +1,120 @@
+<!-- ============================================================================
+     Source: login.html
+     Version: 1.0.0 — 2026-04-16
+     Why: Admin login page with glassmorphism card design
+     Env / Identity: Jinja2 template — standalone page (no sidebar)
+     ============================================================================ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin Login — Telegram AI Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/admin.css" />
+</head>
+<body class="login-body">
+
+    <!-- Animated gradient background orbs -->
+    <div class="login-bg" aria-hidden="true">
+        <div class="bg-orb orb-1"></div>
+        <div class="bg-orb orb-2"></div>
+        <div class="bg-orb orb-3"></div>
+    </div>
+
+    <!-- Login card -->
+    <main class="login-container" role="main">
+        <div class="login-card" id="login-card">
+
+            <!-- Logo + branding -->
+            <div class="login-header">
+                <div class="login-logo" aria-hidden="true">🤖</div>
+                <h1 class="login-title">Admin Panel</h1>
+                <p class="login-subtitle">Telegram AI Bot</p>
+            </div>
+
+            <!-- Session expired notice -->
+            {% if expired %}
+            <div class="login-notice notice-warn" role="alert">
+                ⚠️ Your session has expired. Please log in again.
+            </div>
+            {% endif %}
+
+            <!-- Error notice -->
+            {% if error %}
+            <div class="login-notice notice-error" role="alert">
+                ❌ {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- Login form -->
+            <form action="/admin/login" method="post" class="login-form" id="login-form" novalidate>
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-input"
+                        placeholder="admin"
+                        autocomplete="username"
+                        required
+                        autofocus
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <div class="input-wrapper">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-input"
+                            placeholder="••••••••"
+                            autocomplete="current-password"
+                            required
+                        />
+                        <!-- Toggle password visibility -->
+                        <button
+                            type="button"
+                            class="input-toggle"
+                            id="toggle-password"
+                            aria-label="Toggle password visibility"
+                            onclick="togglePassword()"
+                        >👁</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-full" id="btn-login">
+                    Sign In
+                </button>
+            </form>
+
+        </div>
+    </main>
+
+    <script>
+        // Toggle password visibility
+        function togglePassword() {
+            const input = document.getElementById("password");
+            input.type = input.type === "password" ? "text" : "password";
+        }
+
+        // Animate the login card on load
+        document.addEventListener("DOMContentLoaded", () => {
+            const card = document.getElementById("login-card");
+            card.style.opacity = "0";
+            card.style.transform = "translateY(20px)";
+            requestAnimationFrame(() => {
+                card.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+                card.style.opacity = "1";
+                card.style.transform = "translateY(0)";
+            });
+        });
+    </script>
+</body>
+</html>

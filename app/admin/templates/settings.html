@@ -1,0 +1,314 @@
+<!-- ============================================================================
+     Source: settings.html
+     Version: 1.0.0 — 2026-04-16
+     Why: Admin settings page — API keys, model config, Telegram config
+     Env / Identity: Jinja2 template — extends base.html
+     ============================================================================ -->
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<form action="/admin/settings" method="post" id="settings-form">
+
+    <!-- ================================================================
+         OpenAI Configuration Section
+         ================================================================ -->
+    <section class="card settings-section" id="section-openai">
+        <div class="card-header">
+            <h2 class="card-title">
+                <span aria-hidden="true">🧠</span> OpenAI Configuration
+            </h2>
+            <span class="card-badge badge-blue">GPT</span>
+        </div>
+        <div class="settings-grid">
+
+            <!-- API Key with show/hide and Test button -->
+            <div class="form-group form-group-wide" id="group-openai-key">
+                <label for="openai_api_key" class="form-label">API Key</label>
+                <div class="input-row">
+                    <div class="input-wrapper">
+                        <input
+                            type="password"
+                            id="openai_api_key"
+                            name="openai_api_key"
+                            class="form-input"
+                            placeholder="sk-••••••••••••••••"
+                            autocomplete="off"
+                            value="{{ '••••••••••••••••' if config.openai_api_key else '' }}"
+                        />
+                        <button type="button" class="input-toggle"
+                                onclick="toggleField('openai_api_key')" aria-label="Show/hide key">👁</button>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-test"
+                            id="test-openai"
+                            data-provider="openai"
+                            data-field="openai_api_key"
+                            onclick="testApiKey(this)">
+                        Test
+                    </button>
+                </div>
+                <span class="test-result" id="result-openai"></span>
+            </div>
+
+            <!-- Model selector -->
+            <div class="form-group" id="group-openai-model">
+                <label for="openai_model" class="form-label">Model</label>
+                <select id="openai_model" name="openai_model" class="form-select">
+                    {% for model in ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo", "gpt-4-turbo"] %}
+                    <option value="{{ model }}" {% if config.openai_model == model %}selected{% endif %}>
+                        {{ model }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Max tokens -->
+            <div class="form-group" id="group-openai-tokens">
+                <label for="openai_max_tokens" class="form-label">Max Tokens</label>
+                <input type="number" id="openai_max_tokens" name="openai_max_tokens"
+                       class="form-input" min="100" max="4096"
+                       value="{{ config.openai_max_tokens }}" />
+            </div>
+
+            <!-- Temperature -->
+            <div class="form-group" id="group-openai-temp">
+                <label for="openai_temperature" class="form-label">
+                    Temperature
+                    <span class="label-hint" title="0.0 = deterministic, 2.0 = very random">(?)</span>
+                </label>
+                <input type="number" id="openai_temperature" name="openai_temperature"
+                       class="form-input" min="0" max="2" step="0.1"
+                       value="{{ config.openai_temperature }}" />
+            </div>
+
+            <!-- System prompt — full width -->
+            <div class="form-group form-group-wide" id="group-system-prompt">
+                <label for="openai_system_prompt" class="form-label">System Prompt</label>
+                <textarea id="openai_system_prompt" name="openai_system_prompt"
+                          class="form-textarea" rows="3"
+                          placeholder="You are a helpful assistant…">{{ config.openai_system_prompt }}</textarea>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ================================================================
+         Image Generation Section
+         ================================================================ -->
+    <section class="card settings-section" id="section-image" style="margin-top: var(--space-4);">
+        <div class="card-header">
+            <h2 class="card-title">
+                <span aria-hidden="true">🎨</span> Image Generation
+            </h2>
+            <span class="card-badge badge-purple">Flux</span>
+        </div>
+        <div class="settings-grid">
+
+            <!-- Provider selector -->
+            <div class="form-group" id="group-image-provider">
+                <label for="image_provider" class="form-label">Provider</label>
+                <select id="image_provider" name="image_provider" class="form-select"
+                        onchange="updateImageProviderUI(this.value)">
+                    <option value="replicate" {% if config.image_provider == 'replicate' %}selected{% endif %}>Replicate</option>
+                    <option value="fal" {% if config.image_provider == 'fal' %}selected{% endif %}>fal.ai</option>
+                </select>
+            </div>
+
+            <!-- Flux model selector — options change based on provider -->
+            <div class="form-group" id="group-flux-model">
+                <label for="flux_model" class="form-label">Model</label>
+                <select id="flux_model" name="flux_model" class="form-select">
+                    <optgroup label="Replicate" id="optgroup-replicate">
+                        <option value="black-forest-labs/flux-schnell">flux-schnell (fast, $0.003)</option>
+                        <option value="black-forest-labs/flux-dev">flux-dev ($0.025)</option>
+                        <option value="black-forest-labs/flux-pro">flux-pro ($0.055)</option>
+                    </optgroup>
+                    <optgroup label="fal.ai" id="optgroup-fal">
+                        <option value="fal-ai/flux/schnell">fal flux-schnell ($0.003)</option>
+                        <option value="fal-ai/flux/dev">fal flux-dev ($0.025)</option>
+                        <option value="fal-ai/flux-pro">fal flux-pro ($0.055)</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- Replicate API token -->
+            <div class="form-group form-group-wide" id="group-replicate-key"
+                 {% if config.image_provider != 'replicate' %}style="display:none"{% endif %}>
+                <label for="replicate_api_token" class="form-label">Replicate API Token</label>
+                <div class="input-row">
+                    <div class="input-wrapper">
+                        <input type="password" id="replicate_api_token" name="replicate_api_token"
+                               class="form-input" placeholder="r8_••••••••••••••••" autocomplete="off"
+                               value="{{ '••••••••••••••••' if config.replicate_api_token else '' }}" />
+                        <button type="button" class="input-toggle"
+                                onclick="toggleField('replicate_api_token')" aria-label="Show/hide key">👁</button>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-test"
+                            id="test-replicate" data-provider="replicate" data-field="replicate_api_token"
+                            onclick="testApiKey(this)">Test</button>
+                </div>
+                <span class="test-result" id="result-replicate"></span>
+            </div>
+
+            <!-- fal.ai API key -->
+            <div class="form-group form-group-wide" id="group-fal-key"
+                 {% if config.image_provider != 'fal' %}style="display:none"{% endif %}>
+                <label for="fal_api_key" class="form-label">fal.ai API Key</label>
+                <div class="input-row">
+                    <div class="input-wrapper">
+                        <input type="password" id="fal_api_key" name="fal_api_key"
+                               class="form-input" placeholder="••••••••••••••••" autocomplete="off"
+                               value="{{ '••••••••••••••••' if config.fal_api_key else '' }}" />
+                        <button type="button" class="input-toggle"
+                                onclick="toggleField('fal_api_key')" aria-label="Show/hide key">👁</button>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-test"
+                            id="test-fal" data-provider="fal" data-field="fal_api_key"
+                            onclick="testApiKey(this)">Test</button>
+                </div>
+                <span class="test-result" id="result-fal"></span>
+            </div>
+
+            <!-- Image size -->
+            <div class="form-group" id="group-image-size">
+                <label for="flux_image_size" class="form-label">Default Size</label>
+                <select id="flux_image_size" name="flux_image_size" class="form-select">
+                    {% for size in ["512x512", "768x768", "1024x1024", "1024x576", "576x1024"] %}
+                    <option value="{{ size }}" {% if config.flux_image_size == size %}selected{% endif %}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Style prefix -->
+            <div class="form-group form-group-wide" id="group-style-prefix">
+                <label for="flux_style_prefix" class="form-label">
+                    Style Prefix
+                    <span class="label-hint" title="Prepended to all image prompts">(?)</span>
+                </label>
+                <input type="text" id="flux_style_prefix" name="flux_style_prefix"
+                       class="form-input" placeholder="photorealistic, 8k, cinematic lighting, "
+                       value="{{ config.flux_style_prefix }}" />
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ================================================================
+         Telegram Bot Settings
+         ================================================================ -->
+    <section class="card settings-section" id="section-telegram" style="margin-top: var(--space-4);">
+        <div class="card-header">
+            <h2 class="card-title">
+                <span aria-hidden="true">📱</span> Telegram Bot
+            </h2>
+            <span class="card-badge badge-cyan">Webhook / Polling</span>
+        </div>
+        <div class="settings-grid">
+
+            <!-- Bot token -->
+            <div class="form-group form-group-wide" id="group-bot-token">
+                <label for="telegram_bot_token" class="form-label">Bot Token</label>
+                <div class="input-row">
+                    <div class="input-wrapper">
+                        <input type="password" id="telegram_bot_token" name="telegram_bot_token"
+                               class="form-input" placeholder="123456:ABC-••••••••••••••••" autocomplete="off"
+                               value="{{ '••••••••••••••••' if config.telegram_bot_token else '' }}" />
+                        <button type="button" class="input-toggle"
+                                onclick="toggleField('telegram_bot_token')" aria-label="Show/hide key">👁</button>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-test"
+                            id="test-telegram" data-provider="telegram" data-field="telegram_bot_token"
+                            onclick="testApiKey(this)">Test</button>
+                </div>
+                <span class="test-result" id="result-telegram"></span>
+            </div>
+
+            <!-- Webhook URL -->
+            <div class="form-group form-group-wide" id="group-webhook-url">
+                <label for="telegram_webhook_url" class="form-label">Webhook URL</label>
+                <input type="url" id="telegram_webhook_url" name="telegram_webhook_url"
+                       class="form-input" placeholder="https://your-domain.com"
+                       value="{{ config.telegram_webhook_url }}" />
+            </div>
+
+            <!-- Bot mode toggle -->
+            <div class="form-group" id="group-bot-mode">
+                <label for="bot_mode" class="form-label">Mode</label>
+                <select id="bot_mode" name="bot_mode" class="form-select">
+                    <option value="polling" {% if config.bot_mode == 'polling' %}selected{% endif %}>Polling (local dev)</option>
+                    <option value="webhook" {% if config.bot_mode == 'webhook' %}selected{% endif %}>Webhook (production)</option>
+                </select>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ================================================================
+         Rate Limiting & App Settings
+         ================================================================ -->
+    <section class="card settings-section" id="section-app" style="margin-top: var(--space-4);">
+        <div class="card-header">
+            <h2 class="card-title"><span aria-hidden="true">⚡</span> Rate Limiting & App</h2>
+        </div>
+        <div class="settings-grid">
+
+            <div class="form-group" id="group-rate-requests">
+                <label for="rate_limit_requests" class="form-label">Max Requests</label>
+                <input type="number" id="rate_limit_requests" name="rate_limit_requests"
+                       class="form-input" min="1" max="1000"
+                       value="{{ config.rate_limit_requests }}" />
+                <span class="form-hint">Per time window</span>
+            </div>
+
+            <div class="form-group" id="group-rate-window">
+                <label for="rate_limit_window" class="form-label">Window (seconds)</label>
+                <input type="number" id="rate_limit_window" name="rate_limit_window"
+                       class="form-input" min="1" max="3600"
+                       value="{{ config.rate_limit_window }}" />
+            </div>
+
+            <!-- Maintenance mode toggle -->
+            <div class="form-group" id="group-maintenance">
+                <label class="form-label">Maintenance Mode</label>
+                <label class="toggle-switch" for="maintenance_mode">
+                    <input type="checkbox" id="maintenance_mode" name="maintenance_mode"
+                           value="true" {% if config.maintenance_mode == 'true' %}checked{% endif %} />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Disable bot for all users</span>
+                </label>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Save button -->
+    <div class="settings-actions" style="margin-top: var(--space-4);">
+        <button type="submit" class="btn btn-primary btn-lg" id="btn-save-settings">
+            💾 Save All Settings
+        </button>
+    </div>
+
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Show/hide the correct provider API key field when provider changes
+function updateImageProviderUI(provider) {
+    const replicateGroup = document.getElementById("group-replicate-key");
+    const falGroup = document.getElementById("group-fal-key");
+    if (replicateGroup) replicateGroup.style.display = provider === "replicate" ? "" : "none";
+    if (falGroup) falGroup.style.display = provider === "fal" ? "" : "none";
+}
+
+// Set initial model dropdown to saved value
+document.addEventListener("DOMContentLoaded", () => {
+    const modelSelect = document.getElementById("flux_model");
+    if (modelSelect) {
+        modelSelect.value = "{{ config.flux_model }}";
+    }
+});
+</script>
+{% endblock %}

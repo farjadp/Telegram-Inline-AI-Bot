@@ -1,0 +1,60 @@
+# ============================================================================
+# Source: .gitignore
+# Version: 1.0.0 — 2026-04-16
+# Why: Prevents secrets, build artifacts, and local files from being committed
+# Env / Identity: Git
+# ============================================================================
+
+# --- Environment & secrets (NEVER commit these) ---
+.env
+.env.local
+.env.*.local
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+.env/
+
+# --- Database files (local dev SQLite) ---
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# --- Testing & coverage ---
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Docker ---
+.dockerignore
+
+# --- Alembic ---
+# Keep versions/ but ignore any temp files
+alembic/*.pyc

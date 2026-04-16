@@ -1,0 +1,123 @@
+<!-- ============================================================================
+     Source: base.html
+     Version: 1.0.0 — 2026-04-16
+     Why: Base Jinja2 layout for all admin panel pages — sidebar, topbar, flashes
+     Env / Identity: Jinja2 template — FastAPI Admin Panel
+     ============================================================================ -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Telegram AI Bot Admin Panel — configuration and analytics" />
+    <title>{% block title %}Admin Panel{% endblock %} — Telegram AI Bot</title>
+
+    <!-- Google Fonts — Inter for clean, modern typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Admin panel styles -->
+    <link rel="stylesheet" href="/static/css/admin.css" />
+
+    <!-- Chart.js for analytics charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <!-- ================================================================
+         Sidebar Navigation
+         ================================================================ -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Brand / Logo -->
+        <div class="sidebar-brand">
+            <div class="brand-icon" aria-hidden="true">🤖</div>
+            <div class="brand-text">
+                <span class="brand-name">AI Bot</span>
+                <span class="brand-sub">Admin Panel</span>
+            </div>
+        </div>
+
+        <!-- Navigation links -->
+        <nav class="sidebar-nav" aria-label="Main navigation">
+            <a href="/admin/dashboard"
+               class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
+               id="nav-dashboard">
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="/admin/settings"
+               class="nav-item {% if active_page == 'settings' %}active{% endif %}"
+               id="nav-settings">
+                <span class="nav-icon" aria-hidden="true">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </a>
+            <a href="/admin/history"
+               class="nav-item {% if active_page == 'history' %}active{% endif %}"
+               id="nav-history">
+                <span class="nav-icon" aria-hidden="true">📋</span>
+                <span class="nav-label">Request History</span>
+            </a>
+            <a href="/admin/analytics"
+               class="nav-item {% if active_page == 'analytics' %}active{% endif %}"
+               id="nav-analytics">
+                <span class="nav-icon" aria-hidden="true">📈</span>
+                <span class="nav-label">Analytics</span>
+            </a>
+            <a href="/admin/users"
+               class="nav-item {% if active_page == 'users' %}active{% endif %}"
+               id="nav-users">
+                <span class="nav-icon" aria-hidden="true">👥</span>
+                <span class="nav-label">Users</span>
+            </a>
+        </nav>
+
+        <!-- Logout link at sidebar bottom -->
+        <div class="sidebar-footer">
+            <form action="/admin/logout" method="post" id="logout-form">
+                <button type="submit" class="logout-btn" id="btn-logout">
+                    <span class="nav-icon" aria-hidden="true">🚪</span>
+                    <span class="nav-label">Logout</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ================================================================
+         Main Content Area
+         ================================================================ -->
+    <div class="main-wrapper">
+        <!-- Top bar with mobile menu toggle and page title -->
+        <header class="topbar">
+            <button class="menu-toggle" id="menu-toggle" aria-label="Toggle sidebar">
+                <span></span><span></span><span></span>
+            </button>
+            <h1 class="topbar-title">{% block page_title %}Admin Panel{% endblock %}</h1>
+            <div class="topbar-right">
+                <span class="admin-badge" aria-label="Logged in as admin">👤 Admin</span>
+            </div>
+        </header>
+
+        <!-- Flash message area (success / error banners) -->
+        {% if saved is defined and saved %}
+        <div class="flash flash-success" id="flash-message" role="alert">
+            <span>✅ Settings saved successfully</span>
+            <button class="flash-close" onclick="this.parentElement.remove()" aria-label="Dismiss">×</button>
+        </div>
+        {% endif %}
+
+        <!-- Page content -->
+        <main class="content" id="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Sidebar overlay (mobile) — click to close sidebar -->
+    <div class="sidebar-overlay" id="sidebar-overlay" aria-hidden="true"></div>
+
+    <!-- Admin panel JavaScript -->
+    <script src="/static/js/admin.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
