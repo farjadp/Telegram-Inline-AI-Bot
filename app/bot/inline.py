@@ -130,25 +130,6 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     try:
         from app.ai.router import route_query
 
-        # For image generation, show a "generating…" placeholder first
-        # This gives immediate feedback since image generation takes seconds
-        if intent == "image":
-            placeholder_id = str(uuid.uuid4())
-            await update.inline_query.answer(
-                results=[
-                    InlineQueryResultArticle(
-                        id=placeholder_id,
-                        title="🎨 Generating image…",
-                        description=f"Creating: {query[:100]}",
-                        input_message_content=InputTextMessageContent(
-                            f"🎨 Generating image for:\n_{query[:200]}_",
-                            parse_mode="Markdown",
-                        ),
-                    )
-                ],
-                cache_time=0,  # Don't cache placeholder
-            )
-
         # Call the AI router — returns TextResult or ImageResult
         ai_response = await route_query(query=query, user_id=tg_user.id, intent=intent)
 
