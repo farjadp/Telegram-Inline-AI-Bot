@@ -125,7 +125,7 @@ async def route_query(
         # -----------------------------------------------------
         try:
             from app.ai.openai_client import _get_client
-            client = await _get_client()
+            client = _get_client()
             translation_resp = await client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
