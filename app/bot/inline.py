@@ -220,12 +220,14 @@ def _build_results(intent: str, query: str, ai_response) -> list:
         image_url = ai_response.image_url
         if image_url:
             results.append(
-                InlineQueryResultPhoto(
+                InlineQueryResultArticle(
                     id=str(uuid.uuid4()),
-                    photo_url=image_url,
-                    thumbnail_url=image_url,
-                    caption=f"🎨 {query[:200]}",
-                    title=f"Generated: {query[:50]}",
+                    title=f"🎨 Generated: {query[:50]}",
+                    description="Tap to send the generated image in the chat",
+                    input_message_content=InputTextMessageContent(
+                        f"[‎]({image_url})🎨 Generated image for:\n_{query[:200]}_",
+                        parse_mode="Markdown",
+                    ),
                 )
             )
         else:
