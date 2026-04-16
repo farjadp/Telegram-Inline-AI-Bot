@@ -119,7 +119,29 @@ async def route_query(
     elif intent == "image":
         # --- Route to Flux image generation ---
         logger.debug("Dispatching to Flux image generation")
-        result = await generate_image(prompt=query, user_id=user_id)
+        
+        # -----------------------------------------------------
+        # Pre-translate prompt to English to prevent hallucinations
+        # -----------------------------------------------------
+        try:
+            from app.ai.openai_client import _get_client
+            client = await _get_client()
+            translation_resp = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a prompt translator. Translate the given Persian (or any non-English) input to a highly descriptive English image generation prompt. ONLY output the English text without explanations."},
+                    {"role": "user", "content": query}
+                ],
+                max_tokens=100,
+                temperature=0.3
+            )
+            english_prompt = translation_resp.choices[0].message.content.strip()
+            logger.info("Auto-translated: %r -> %r", query, english_prompt)
+        except Exception as e:
+            logger.warning("Translation failed: %s", e)
+            english_prompt = query
+
+        result = await generate_image(prompt=english_prompt, user_id=user_id)
         response = _from_image_result(result)
         logger.info(
             "Image response | model=%s | url=%s | cost=$%.4f",
