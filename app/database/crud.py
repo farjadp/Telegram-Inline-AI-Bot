@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import func, select, update, desc, and_, cast, Date
+from sqlalchemy import func, select, update, desc, and_, cast, Date, case
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.database.models import User, Request, Setting, AdminSession
@@ -297,10 +297,10 @@ async def get_analytics(days: int = 30) -> dict:
             select(
                 cast(Request.created_at, Date).label("day"),
                 func.sum(
-                    func.case((Request.request_type == "text", 1), else_=0)
+                    case((Request.request_type == "text", 1), else_=0)
                 ).label("text_count"),
                 func.sum(
-                    func.case((Request.request_type == "image", 1), else_=0)
+                    case((Request.request_type == "image", 1), else_=0)
                 ).label("image_count"),
                 func.sum(Request.total_tokens).label("tokens"),
                 func.sum(Request.cost_usd).label("cost"),

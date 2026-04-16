@@ -136,19 +136,26 @@ async def _generate_via_fal(
         Exception: if the fal.ai API call fails
     """
     import fal_client  # Imported here to avoid errors if package not installed
+    import os
 
     logger.debug("fal.ai request | model=%s | size=%dx%d", model, width, height)
 
-    # fal_client.submit() is async-compatible
+    # fal_client currently reads from environment securely per thread/process
+    os.environ["FAL_KEY"] = api_key
+
+    # Advanced models (v1.1, ultra) use different argument signatures
+    args = {"prompt": prompt}
+    if "v1.1" in model or "ultra" in model:
+        args["aspect_ratio"] = "1:1"  # Defaulting to square, advanced handling can be added
+    else:
+        args["image_size"] = {"width": width, "height": height}
+        args["num_inference_steps"] = 4 if "schnell" in model else 28
+        args["num_images"] = 1
+
+    # fal_client.run_async() no longer accepts 'key' parameter directly
     result = await fal_client.run_async(
         model,
-        arguments={
-            "prompt": prompt,
-            "image_size": {"width": width, "height": height},
-            "num_inference_steps": 4 if "schnell" in model else 28,
-            "num_images": 1,
-        },
-        key=api_key,  # Pass key directly per-request for dynamic settings support
+        arguments=args,
     )
 
     # fal.ai result shape: {"images": [{"url": "https://..."}]}
