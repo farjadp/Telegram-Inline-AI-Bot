@@ -23,7 +23,7 @@ python-telegram-bot[job-queue]==21.3  # Async Telegram bot library v20+
 # ---------------------------------------------------------------------------
 openai==1.35.7             # OpenAI GPT client (v1.x async API)
 replicate==0.30.0          # Replicate API client for Flux image generation
-fal-client==0.4.1          # fal.ai client (alternative image provider)
+fal-client>=0.13.2          # fal.ai client (alternative image provider)
 httpx==0.27.0              # Async HTTP client used internally
 
 # ---------------------------------------------------------------------------
